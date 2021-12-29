@@ -29,13 +29,15 @@
 
 (defn set-key-route
   [req]
-  (let [request (:body req)]
+  (let [request (:body req)
+        key (request :key)
+        value (request :value)]
     (try
-      ((set-key (request :value) (request :value)))
+      ((set-key (key) (value)))
       (catch Exception e
         ;; TODO: create error response
         (route/not-found (str "error" e))))
-    (wrap-response {:key (request :value) :value (request :value)})))
+    (wrap-response {:key (value) :value (value)})))
 
 (defn get-key-route
   [key]
@@ -62,7 +64,7 @@
    (handler/api app-routes)
    (middleware/wrap-transit-response {:encoding :json :opts {}})
    (wrap-cors :access-control-allow-origin #".*localhost.*"
-              :access-control-allow-methods [:get]
+              :access-control-allow-methods [:get :put :delete]
               :access-control-allow-headers ["Origin" "X-Requested-With"
                                              "Content-Type" "Accept"
                                              "Cache-Control" "Accept-Encoding"])))
