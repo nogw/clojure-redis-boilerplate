@@ -8,24 +8,31 @@
    [ring.middleware.cors :refer [wrap-cors]]
    [ring.middleware.transit :as middleware]
    [ring.middleware.json :refer [wrap-json-body]]
-   [ring.util.response :as resp :refer [response]]
+   [ring.util.response :as resp]
    [cheshire.core :as json])
   (:gen-class))
 
 (defonce redis-connection {:pool {} :spec {:spec (System/getenv "REDIS_URL")}})
 
-(defn set-key [key data] (wcar redis-connection (car/set key data)))
+(defn set-key
+  [key data]
+  (wcar redis-connection (car/set key data)))
 
-(defn get-key [key] (wcar redis-connection (car/get key)))
+(defn get-key
+  [key]
+  (wcar redis-connection (car/get key)))
 
-(defn del-key [key] (wcar redis-connection (car/del key)))
+(defn del-key
+  [key]
+  (wcar redis-connection (car/del key)))
+
+(defn wrap-bad-response
+  [res]
+  (-> (json/generate-string {:error res}) (resp/response) (resp/status 400)))
 
 (defn wrap-response
   [res & more]
-  (->
-   (apply merge {:data res} more)
-   (json/generate-string)
-   (response)))
+  (-> (apply merge {:data res} more) (json/generate-string) (resp/response)))
 
 (defn set-key-route
   [req]
@@ -33,11 +40,11 @@
         key (request :key)
         value (request :value)]
     (try
-      ((set-key (key) (value)))
+      ((set-key key value))
       (catch Exception e
         ;; TODO: create error response
-        (route/not-found (str "error" e))))
-    (wrap-response {:key (value) :value (value)})))
+        (wrap-bad-response (str "-> " e))))
+    (wrap-response {:key key :value value})))
 
 (defn get-key-route
   [key]
@@ -70,5 +77,6 @@
                                              "Cache-Control" "Accept-Encoding"])))
 
 (defn -main
-  [& _]
-  (jetty/run-jetty #'app {:port 3002 :join? false}))
+  [& [port]]
+  (let [port (Integer. (or port (System/getenv "PORT") 3000))]
+    (jetty/run-jetty #'app {:port port :join? false})))
