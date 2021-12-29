@@ -1,7 +1,7 @@
 (ns clojure-redis-boilerplate.core
   (:require
    [taoensso.carmine :as car :refer [wcar]]
-   [compojure.core :refer [context defroutes GET POST DELETE]]
+   [compojure.core :refer [context defroutes GET PUT DELETE]]
    [compojure.handler :as handler]
    [compojure.route :as route]
    [ring.adapter.jetty :as jetty]
@@ -14,17 +14,11 @@
 
 (defonce redis-connection {:pool {} :spec {:spec (System/getenv "REDIS_URL")}})
 
-(defn set-key
-  [key data]
-  (wcar redis-connection (car/set key data)))
+(defn set-key [key data] (wcar redis-connection (car/set key data)))
 
-(defn get-key
-  [key]
-  (wcar redis-connection (car/get key)))
+(defn get-key [key] (wcar redis-connection (car/get key)))
 
-(defn del-key
-  [key]
-  (wcar redis-connection (car/del key)))
+(defn del-key [key] (wcar redis-connection (car/del key)))
 
 (defn wrap-response
   [res & more]
@@ -35,10 +29,13 @@
 
 (defn set-key-route
   [req]
-  (println (:body req))
-  (let [j (:body req)]
-    (set-key (j :key) (j :value))
-    (wrap-response (:body req))))
+  (let [request (:body req)]
+    (try
+      ((set-key (request :value) (request :value)))
+      (catch Exception e
+        ;; TODO: create error response
+        (route/not-found (str "error" e))))
+    (wrap-response {:key (request :value) :value (request :value)})))
 
 (defn get-key-route
   [key]
@@ -51,8 +48,8 @@
   (wrap-response "deleted"))
 
 (defroutes key-routes
-  (GET "/:key" [key] (get-key-route key))
-  (POST "/" [] (wrap-json-body set-key-route {:keywords? true :bigdecimals? true}))
+  (PUT    "/" [] (wrap-json-body set-key-route {:keywords? true :bigdecimals? true}))
+  (GET    "/:key" [key] (get-key-route key))
   (DELETE "/:key" [key] (del-key-route key))
   (route/not-found "Not found"))
 
@@ -72,4 +69,4 @@
 
 (defn -main
   [& _]
-  (jetty/run-jetty #'app {:port 3013 :join? false}))
+  (jetty/run-jetty #'app {:port 3002 :join? false}))
